@@ -9,7 +9,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/akutz/memconn"
 	retry "github.com/avast/retry-go/v4"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -34,7 +33,6 @@ type Options interface {
 // Exporter exports logs, metrics, and traces to an oltcpreceiver.
 type Exporter struct {
 	writer  *writer
-	network string
 	address string
 }
 
@@ -45,9 +43,8 @@ var (
 
 // NewExporter creates a new exporter.  It is recommended to create a different exporter
 // for logs, metrics, and traces.
-func NewExporter(network string, address string, options ...Options) (*Exporter, error) {
+func NewExporter(address string, options ...Options) (*Exporter, error) {
 	e := Exporter{
-		network: network,
 		address: address,
 		writer:  &writer{},
 	}
@@ -60,7 +57,7 @@ func NewExporter(network string, address string, options ...Options) (*Exporter,
 }
 
 func (e *Exporter) connect(ctx context.Context) (io.Writer, error) {
-	return e.writer.dialContext(ctx, e.network, e.address)
+	return e.writer.dialContext(ctx, e.address)
 }
 
 func (e *Exporter) disconnect() {
@@ -139,7 +136,7 @@ func (w *writer) disconnect() {
 	w.writer = nil
 }
 
-func (w *writer) dialContext(ctx context.Context, network string, address string) (io.Writer, error) {
+func (w *writer) dialContext(ctx context.Context, address string) (io.Writer, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -148,7 +145,7 @@ func (w *writer) dialContext(ctx context.Context, network string, address string
 	}
 
 	err := retry.Do(func() error {
-		c, err := memconn.DialContext(ctx, network, address)
+		c, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
 		if err != nil {
 			return err
 		}
