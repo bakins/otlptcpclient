@@ -20,10 +20,12 @@ func TestExporter(t *testing.T) {
 
 	defer svr.stop()
 
-	exp, err := NewExporter(svr.listener.Addr().Network(), svr.listener.Addr().String())
+	exp, err := NewExporter(svr.listener.Addr().String())
 	require.NoError(t, err)
 
-	defer exp.Stop(context.Background())
+	defer func() {
+		_ = exp.Stop(context.Background())
+	}()
 
 	logs := logpb.ResourceLogs{
 		ScopeLogs: []*logpb.ScopeLogs{
@@ -55,7 +57,8 @@ func TestExporter(t *testing.T) {
 	err = exp.UploadLogs(context.Background(), &logs)
 	require.NoError(t, err)
 
-	exp.Stop(context.Background())
+	require.NoError(t, exp.Stop(context.Background()))
+
 	svr.stop()
 
 	require.Len(t, svr.messages, 4)
